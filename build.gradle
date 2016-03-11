@@ -1,9 +1,26 @@
-group 'binexptree'
 apply plugin: 'java'
 apply plugin: 'eclipse'
 apply plugin: 'idea'
 apply plugin: 'findbugs'
-apply plugin: 'com.diffplug.gradle.spotless'
+apply plugin: 'jacoco'
+apply plugin: 'maven'
+
+// Only add spotless for JDK >= 1.8
+if (JavaVersion.current().isJava8Compatible()) {
+	apply plugin: 'com.diffplug.gradle.spotless'
+}
+
+buildscript {
+	repositories {
+		jcenter()
+	}
+	dependencies {
+		// Only add spotless for JDK >= 1.8
+		if (JavaVersion.current().isJava8Compatible()) {
+			classpath group: 'com.diffplug.gradle.spotless', name: 'spotless', version: '1.3.2'
+		}
+	}
+}
 
 sourceCompatibility = 1.6
 version = '1.0'
@@ -13,17 +30,9 @@ repositories {
 }
 
 dependencies {
-	testCompile group: 'junit', name: 'junit', version: '4.+'
+	testCompile group: 'junit', name: 'junit', version: '4.12'
 }
 
-buildscript {
-	repositories {
-		jcenter()
-	}
-	dependencies {
-		classpath "com.diffplug.gradle.spotless:spotless:1.3.2"
-	}
-}
 
 spotless {
 	java {
@@ -33,10 +42,58 @@ spotless {
 	}
 }
 
+jacocoTestReport {
+    reports {
+        xml.enabled false
+        csv.enabled false
+        html.enabled true
+    }
+}
 
 task jarTests(type: Jar) {
 	description 'Creates a jar file with all test classes.'
 	baseName = 'binexptree-tests'
 	from sourceSets.test.output
 	from sourceSets.main.output
+}
+
+assemble {
+	dependsOn jarTests
+}
+
+if (jdk6BootClasspath) {
+	tasks.withType(JavaCompile) {
+		options.fork = true
+		options.bootClasspath = "$jdk6BootClasspath"
+	}
+}
+
+
+task createPom << {
+    pom {
+        project {
+            groupId 'com.infobart'
+            artifactId 'binexptree'
+            version '1.0.0'
+            description 'A simple binary expression tree'
+            scm {
+            	connection 'scm:git:git@github.com:bartdag/binexptree.git'
+            	developerConnection 'scm:git:git@github.com:bartdag/binexptree.git'
+            	url 'git@github.com:bartdag/binexptree.git'
+			}
+			developers {
+				developer {
+					id 'bartdag'
+					name 'Barthelemy Dagenais'
+					url 'http://infobart.com/'
+				}
+			}
+            licenses {
+                license {
+                    name 'The New BSD License'
+                    url 'http://www.opensource.org/licenses/bsd-license.html'
+                }
+            }
+        }
+    }.writeTo("pom.xml")
 }
